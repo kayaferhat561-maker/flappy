@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird - Firebase Leaderboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at center, #160826 0%, #0b0410 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        #game-wrapper {
+            position: relative;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        #game-container {
+            position: relative;
+            border-radius: 16px;
+            box-shadow: 0 0 50px rgba(138, 43, 226, 0.45), 0 15px 35px rgba(0,0,0,0.8);
+            border: 2px solid rgba(186, 85, 211, 0.3);
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            border-radius: 14px;
+        }
+        /* Liderlik Tablosu Paneli */
+        #leaderboard {
+            width: 220px;
+            background: rgba(22, 8, 38, 0.85);
+            border: 2px solid rgba(186, 85, 211, 0.3);
+            border-radius: 16px;
+            padding: 15px;
+            color: #fff;
+            box-shadow: 0 0 25px rgba(138, 43, 226, 0.3);
+            display: none;
+        }
+        #leaderboard h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            text-align: center;
+            color: #d8b4fe;
+            text-shadow: 0 0 8px rgba(224, 86, 253, 0.5);
+            border-bottom: 1px solid rgba(186, 85, 211, 0.2);
+            padding-bottom: 8px;
+        }
+        .lb-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .lb-item:last-child {
+            border-bottom: none;
+        }
+        .lb-nick {
+            color: #f3a683;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 130px;
+        }
+        .lb-score {
+            font-weight: bold;
+            color: #68d391;
+        }
+
+        /* Nick Giriş Overlay Ekranı */
+        #nick-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 4, 16, 0.94);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            border-radius: 14px;
+            color: #fff;
+            padding: 20px;
+        }
+        #nick-screen h2 {
+            color: #d8b4fe;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(224, 86, 253, 0.5);
+        }
+        #nick-input {
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 2px solid #a855f7;
+            background: #1e0b36;
+            color: #fff;
+            outline: none;
+            text-align: center;
+            margin-bottom: 15px;
+            width: 80%;
+            max-width: 250px;
+        }
+        #nick-input:focus {
+            border-color: #e056fd;
+            box-shadow: 0 0 10px rgba(224, 86, 253, 0.5);
+        }
+        #start-btn {
+            padding: 10px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #a855f7, #68d391);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+        }
+        #start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.7);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="nick-screen">
+        <h2>FLAPPY BIRD</h2>
+        <input type="text" id="nick-input" placeholder="Nickini Yaz..." maxlength="12" autocomplete="off">
+        <button id="start-btn">Oyuna Başla</button>
+    </div>
+    
+    <div id="game-container">
+        <canvas id="canvas" width="460" height="640"></canvas>
+    </div>
+
+    <!-- Sağ tarafta canlı rekorlar listesi -->
+    <div id="leaderboard">
+        <h3>🏆 En İyi 5 Rekor</h3>
+        <div id="lb-list">Yükleniyor...</div>
+    </div>
+</div>
+
+<!-- Firebase Entegrasyonu ve Oyun Mantığı -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, set, get, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // 🔥 BURAYA KENDİ FIREBASE BİLGİLERİNİ YAPIŞTIRMALISIN 🔥
+    const firebaseConfig = {
+        apiKey: "SENIN_API_KEY",
+        authDomain: "SENIN_PROJE.firebaseapp.com",
+        databaseURL: "https://SENIN_PROJE-default-rtdb.firebaseio.com",
+        projectId: "SENIN_PROJE",
+        storageBucket: "SENIN_PROJE.appspot.com",
+        messagingSenderId: "SENIN_ID",
+        appId: "SENIN_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let playerNick = "Oyuncu";
+    let topScores = [];
+
+    async function fetchLeaderboard() {
+        try {
+            const scoresRef = query(ref(db, 'scores'), orderByChild('score'), limitToLast(5));
+            const snapshot = await get(scoresRef);
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                topScores = Object.values(data).sort((a, b) => b.score - a.score);
+            } else {
+                topScores = [];
+            }
+            updateLeaderboardUI();
+        } catch (e) {
+            console.log("Firebase skor çekme hatası:", e);
+        }
+    }
+
+    function updateLeaderboardUI() {
+        const lbList = document.getElementById("lb-list");
+        if (topScores.length === 0) {
+            lbList.innerHTML = "<div style='text-align:center; color:#a6b0c3; font-size:13px;'>Henüz rekor yok</div>";
+            return;
+        }
+        let html = "";
+        topScores.forEach((item, index) => {
+            html += `<div class="lb-item">
+                        <span class="lb-nick">${index + 1}. ${item.nick}</span>
+                        <span class="lb-score">${item.score}</span>
+                     </div>`;
+        });
+        lbList.innerHTML = html;
+    }
+
+    async function saveScoreToFirebase(nick, finalScore) {
+        if (!nick || finalScore <= 0) return;
+        try {
+            const newScoreRef = push(ref(db, 'scores'));
+            await set(newScoreRef, {
+                nick: nick,
+                score: finalScore,
+                date: Date.now()
+            });
+            await fetchLeaderboard();
+        } catch (e) {
+            console.log("Skor kaydetme hatası:", e);
+        }
+    }
+
+    // --- OYUN KODU ---
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const birdImg = new Image();
+    birdImg.src = "resim.png"; 
+
+    const stars = [];
+    for (let i = 0; i < 55; i++) {
+        stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * (canvas.height - 60),
+            size: Math.random() * 2 + 0.5,
+            alpha: Math.random()
+        });
+    }
+
+    let frames = 0;
+    let score = 0;
+    let gameState = "START"; 
+    let scoreSaved = false;
+
+    const bird = {
+        x: 70,
+        y: 200,
+        w: 36,
+        h: 36,
+        gravity: 0.09,    
+        jump: 3.1,        
+        velocity: 0,
+        
+        draw() {
+            ctx.save();
+            ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
+            let angle = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity / 12)));
+            ctx.rotate(angle);
+
+            ctx.save();
+            ctx.shadowColor = "#e056fd";
+            ctx.shadowBlur = 14;
+            ctx.fillStyle = "rgba(224, 86, 253, 0.5)";
+            ctx.beginPath();
+            ctx.arc(0, 0, this.w / 2 + 1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
+            ctx.clip();
+
+            if (birdImg.complete && birdImg.naturalWidth !== 0) {
+                ctx.drawImage(birdImg, -this.w / 2, -this.h / 2, this.w, this.h);
+            } else {
+                ctx.fillStyle = "#e056fd";
+                ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+            }
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
+            ctx.strokeStyle = "#f3a683";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        },
+        
+        update() {
+            if (gameState === "PLAY") {
+                this.velocity += this.gravity;
+                if (this.velocity > 5.0) this.velocity = 5.0;
+                this.y += this.velocity;
+
+                if (this.y + this.h >= canvas.height - 50) {
+                    this.y = canvas.height - 50 - this.h;
+                    gameOver();
+                }
+                if (this.y <= 0) {
+                    this.y = 0;
+                    this.velocity = 0;
+                }
+            } else if (gameState === "START") {
+                this.y = 200 + Math.sin(frames * 0.06) * 10;
+                this.velocity = 0;
+            }
+        },
+        
+        flap() {
+            this.velocity = -this.jump;
+        },
+
+        reset() {
+            this.y = 200;
+            this.velocity = 0;
+        }
+    };
+
+    const pipes = {
+        position: [],
+        w: 72,
+        gap: 175,         
+        dx: 1.3,          
+
+        draw() {
+            for (let i = 0; i < this.position.length; i++) {
+                let p = this.position[i];
+                let topY = p.y;
+                let bottomY = p.y + this.gap;
+
+                let pipeGradient = ctx.createLinearGradient(p.x, 0, p.x + this.w, 0);
+                pipeGradient.addColorStop(0, '#2d0a4e');
+                pipeGradient.addColorStop(0.5, '#481380');
+                pipeGradient.addColorStop(1, '#1a052e');
+
+                ctx.fillStyle = pipeGradient;
+                ctx.strokeStyle = "#a29bfe";
+                ctx.lineWidth = 2;
+                ctx.shadowColor = "#6c5ce7";
+                ctx.shadowBlur = 8;
+
+                ctx.fillRect(p.x, 0, this.w, topY);
+                ctx.strokeRect(p.x, 0, this.w, topY);
+                ctx.fillRect(p.x - 3, topY - 20, this.w + 6, 20);
+                ctx.strokeRect(p.x - 3, topY - 20, this.w + 6, 20);
+
+                ctx.fillRect(p.x, bottomY, this.w, canvas.height - bottomY - 50);
+                ctx.strokeRect(p.x, bottomY, this.w, canvas.height - bottomY - 50);
+                ctx.fillRect(p.x - 3, bottomY, this.w + 6, 20);
+                ctx.strokeRect(p.x - 3, bottomY, this.w + 6, 20);
+
+                ctx.shadowBlur = 0;
+            }
+        },
+
+        update() {
+            if (gameState !== "PLAY") return;
+
+            if (frames % 170 === 0) {
+                this.position.push({
+                    x: canvas.width,
+                    y: Math.floor(Math.random() * (canvas.height - 280 - this.gap)) + 50,
+                    passed: false
+                });
+            }
+
+            for (let i = 0; i < this.position.length; i++) {
+                let p = this.position[i];
+                p.x -= this.dx;
+
+                let birdRight = bird.x + bird.w;
+                let birdBottom = bird.y + bird.h;
+                let pipeRight = p.x + this.w;
+                let pipeBottomGap = p.y + this.gap;
+
+                if (birdRight > p.x && bird.x < pipeRight) {
+                    if (bird.y < p.y || birdBottom > pipeBottomGap) {
+                        gameOver();
+                    }
+                }
+
+                if (p.x + this.w < bird.x && !p.passed) {
+                    score++;
+                    p.passed = true;
+                }
+
+                if (p.x + this.w < 0) {
+                    this.position.shift();
+                    i--;
+                }
+            }
+        },
+
+        reset() {
+            this.position = [];
+        }
+    };
+
+    const ground = {
+        draw() {
+            ctx.fillStyle = "#0c0517";
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+
+            ctx.fillStyle = "#8e44ad";
+            ctx.shadowColor = "#9b59b6";
+            ctx.shadowBlur = 10;
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 4);
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = "rgba(142, 68, 173, 0.2)";
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 20) {
+                ctx.beginPath();
+                ctx.moveTo(x, canvas.height - 46);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+        }
+    };
+
+    function drawBackground() {
+        let bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        bgGrad.addColorStop(0, '#0a0314');
+        bgGrad.addColorStop(0.6, '#180a29');
+        bgGrad.addColorStop(1, '#240d38');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#ffffff";
+        stars.forEach(s => {
+            ctx.globalAlpha = Math.sin(frames * 0.05 + s.alpha * 10) * 0.5 + 0.5;
+            ctx.fillRect(s.x, s.y, s.size, s.size);
+        });
+        ctx.globalAlpha = 1.0;
+    }
+
+    function drawUI() {
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#FFFFFF";
+
+        if (gameState === "START") {
+            ctx.shadowColor = "#a29bfe";
+            ctx.shadowBlur = 12;
+            ctx.font = "bold 24px 'Segoe UI', Arial";
+            ctx.fillText("BAŞLAMAK İÇİN TIKLA", canvas.width / 2, canvas.height / 2 - 30);
+        } else if (gameState === "GAMEOVER") {
+            ctx.shadowColor = "#e84118";
+            ctx.shadowBlur = 15;
+            ctx.font = "bold 34px 'Segoe UI', Arial";
+            ctx.fillStyle = "#ff7675";
+            ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 - 40);
+
+            ctx.shadowColor = "#8e44ad";
+            ctx.shadowBlur = 10;
+            ctx.font = "bold 26px 'Segoe UI', Arial";
+            ctx.fillStyle = "#FFF";
+            ctx.fillText("Skor: " + score, canvas.width / 2, canvas.height / 2 + 10);
+
+            ctx.shadowBlur = 0;
+            ctx.font = "16px 'Segoe UI', Arial";
+            ctx.fillStyle = "#a6b0c3";
+            ctx.fillText("Yeniden Başlamak İçin Tıkla", canvas.width / 2, canvas.height / 2 + 55);
+        } else if (gameState === "PLAY") {
+            ctx.shadowColor = "#9b59b6";
+            ctx.shadowBlur = 12;
+            ctx.font = "bold 44px 'Segoe UI', Arial";
+            ctx.fillText(score, canvas.width / 2, 70);
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    function gameOver() {
+        if (gameState !== "GAMEOVER") {
+            gameState = "GAMEOVER";
+            if (!scoreSaved) {
+                scoreSaved = true;
+                saveScoreToFirebase(playerNick, score);
+            }
+        }
+    }
+
+    function resetGame() {
+        bird.reset();
+        pipes.reset();
+        score = 0;
+        frames = 0;
+        scoreSaved = false;
+        gameState = "PLAY";
+        bird.flap();
+    }
+
+    function handleAction() {
+        if (gameState === "START") {
+            gameState = "PLAY";
+            bird.flap();
+        } else if (gameState === "PLAY") {
+            bird.flap();
+        } else if (gameState === "GAMEOVER") {
+            resetGame();
+        }
+    }
+
+    document.addEventListener("keydown", (e) => {
+        if (e.code === "Space" && gameState !== "START") handleAction();
+    });
+    canvas.addEventListener("click", () => {
+        if (gameState !== "START") handleAction();
+    });
+
+    // Nick Ekranı Buton İşlevi
+    document.getElementById("start-btn").addEventListener("click", () => {
+        const inputVal = document.getElementById("nick-input").value.trim();
+        if (inputVal) {
+            playerNick = inputVal;
+        }
+        document.getElementById("nick-screen").style.display = "none";
+        document.getElementById("leaderboard").style.display = "block";
+        fetchLeaderboard();
+        gameState = "START";
+    });
+
+    function loop() {
+        drawBackground();
+        pipes.update();
+        pipes.draw();
+        ground.draw();
+        bird.update();
+        bird.draw();
+        drawUI();
+
+        frames++;
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+</script>
+</body>
+</html>
