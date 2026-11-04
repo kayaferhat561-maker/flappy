@@ -2,6 +2,19 @@
 
 import React, { useEffect, useRef } from "react"
 
+interface Star {
+  x: number
+  y: number
+  size: number
+  alpha: number
+}
+
+interface PipePosition {
+  x: number
+  y: number
+  passed?: boolean
+}
+
 export default function FlappyBird() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -16,7 +29,7 @@ export default function FlappyBird() {
     birdImg.src = "/resim.png"
 
     // Arka plan yıldızları
-    const stars: Array<{ x: number; y: number; size: number; alpha: number }> = []
+    const stars: Star[] = []
     for (let i = 0; i < 40; i++) {
       stars.push({
         x: Math.random() * canvas.width,
@@ -30,7 +43,7 @@ export default function FlappyBird() {
     let frames = 0
     let score = 0
     let gameState: "START" | "PLAY" | "GAMEOVER" = "START"
-    let animationFrameId: number
+    let animationFrameId = 0
 
     // Kuş Objesi
     const bird = {
@@ -116,7 +129,7 @@ export default function FlappyBird() {
 
     // Borular (Neon Mor / Koyu Temalı)
     const pipes = {
-      position: [] as Array<{ x: number; y: number; passed?: boolean }>,
+      position: [] as PipePosition[],
       w: 64,
       gap: 140,
       dx: 2,
@@ -259,7 +272,7 @@ export default function FlappyBird() {
         ctx.fillText("OYUN BİTTİ", canvas.width / 2, canvas.height / 2 - 40)
 
         ctx.shadowColor = "#8e44ad"
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 10
         ctx.font = "bold 24px 'Segoe UI', Arial"
         ctx.fillStyle = "#FFF"
         ctx.fillText("Skor: " + score, canvas.width / 2, canvas.height / 2 + 10)
