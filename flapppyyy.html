@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Özel Flappy Bird - Dark Neon</title>
+    <title>Özel Flappy Bird - Ahsen Special</title>
     <style>
         body {
             margin: 0;
@@ -38,11 +38,11 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Arkadaşının fotoğrafı (resim.jpg olarak güncellendi)
+// Görsel dosya adı (resim.png veya resim.jpg koyabilirsin)
 const birdImg = new Image();
-birdImg.src = "resim.jpg";
+birdImg.src = "resim.png"; 
 
-// Arka plan yıldızları üretimi
+// Arka plan yıldızları
 const stars = [];
 for (let i = 0; i < 40; i++) {
     stars.push({
@@ -62,8 +62,8 @@ let gameState = "START"; // START, PLAY, GAMEOVER
 const bird = {
     x: 50,
     y: 150,
-    w: 45,
-    h: 45,
+    w: 46,
+    h: 46,
     gravity: 0.25,
     jump: 4.6,
     velocity: 0,
@@ -75,7 +75,17 @@ const bird = {
         let angle = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (this.velocity / 10)));
         ctx.rotate(angle);
 
-        // Fotoğrafın köşeli durmaması için daire şeklinde kırpma (maskeleme)
+        // Fotoğrafın arkasına dış parlama (Neon glow)
+        ctx.save();
+        ctx.shadowColor = "#e056fd";
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = "rgba(224, 86, 253, 0.5)";
+        ctx.beginPath();
+        ctx.arc(0, 0, this.w / 2 + 1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Fotoğrafı mükemmel bir PNG dairesine dönüştüren maskeleme
         ctx.beginPath();
         ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
         ctx.clip();
@@ -83,21 +93,17 @@ const bird = {
         if (birdImg.complete && birdImg.naturalWidth !== 0) {
             ctx.drawImage(birdImg, -this.w / 2, -this.h / 2, this.w, this.h);
         } else {
-            // Görsel yüklenmezse neon mor yedek daire
+            // Görsel yüklenmezse yedek renk
             ctx.fillStyle = "#e056fd";
-            ctx.beginPath();
-            ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
         }
         ctx.restore();
 
-        // Fotoğrafın etrafına şık bir neon çerçeve
+        // Kenar Çerçevesi (Şık Neon Halka)
         ctx.save();
         ctx.translate(this.x + this.w / 2, this.y + this.h / 2);
-        ctx.strokeStyle = "#d8b4fe";
-        ctx.lineWidth = 2;
-        ctx.shadowColor = "#a855f7";
-        ctx.shadowBlur = 8;
+        ctx.strokeStyle = "#f3a683";
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
         ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2);
         ctx.stroke();
@@ -121,7 +127,7 @@ const bird = {
                 this.velocity = 0;
             }
         } else if (gameState === "START") {
-            // Başlangıç ekranında hafifçe yukarı aşağı süzülme efekti (aniden düşmeyi önler)
+            // Başlangıç ekranında aniden düşmesini engelleyen tatlı süzülme hareketi
             this.y = 150 + Math.sin(frames * 0.08) * 8;
             this.velocity = 0;
         }
@@ -137,7 +143,7 @@ const bird = {
     }
 };
 
-// Borular (Koyulaştırılmış ve Mor Neon Tasarım)
+// Borular
 const pipes = {
     position: [],
     w: 64,
@@ -242,7 +248,7 @@ const ground = {
     }
 };
 
-// Arka Plan Çizimi
+// Arka Plan
 function drawBackground() {
     let bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
     bgGrad.addColorStop(0, '#0a0314');
@@ -310,7 +316,7 @@ function resetGame() {
     score = 0;
     frames = 0;
     gameState = "PLAY";
-    bird.flap(); // Yeniden başlarken de aniden düşmemesi için zıplatıyoruz
+    bird.flap();
 }
 
 function handleAction() {
@@ -330,24 +336,4 @@ document.addEventListener("keydown", (e) => {
 canvas.addEventListener("click", handleAction);
 
 // Oyun Döngüsü
-function loop() {
-    drawBackground();
-
-    pipes.update();
-    pipes.draw();
-    
-    ground.draw();
-    
-    bird.update();
-    bird.draw();
-    
-    drawUI();
-
-    frames++;
-    requestAnimationFrame(loop);
-}
-
-loop();
-</script>
-</body>
-</html>
+function loop
