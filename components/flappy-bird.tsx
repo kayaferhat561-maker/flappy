@@ -9,7 +9,7 @@ const W = 400
 const H = 600
 const GROUND = 90
 const BIRD_X = 110
-const BIRD_R = 15
+const BIRD_R = 20
 const GRAVITY = 1600
 const FLAP = -460
 const MAX_FALL = 720
@@ -111,6 +111,10 @@ export function FlappyBird() {
     canvas.height = H * dpr
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
+    const face = new Image()
+    face.crossOrigin = 'anonymous'
+    face.src = '/images/ahsen.png'
+
     const endGame = () => {
       const g = game.current
       g.overAt = g.time
@@ -210,6 +214,49 @@ export function FlappyBird() {
       ctx.rotate(angle)
       ctx.lineWidth = 2.5
       ctx.strokeStyle = '#3a2a14'
+
+      if (face.complete && face.naturalWidth > 0) {
+        const flapPhase = phase === 'over' ? 0 : Math.sin(time * 22)
+        ctx.fillStyle = '#fff6d5'
+        for (const side of [-1, 1]) {
+          ctx.beginPath()
+          ctx.ellipse(
+            side * (BIRD_R + 4),
+            2 + flapPhase * 5,
+            10,
+            6 - Math.abs(flapPhase) * 2,
+            side * (0.4 - flapPhase * 0.3),
+            0,
+            Math.PI * 2,
+          )
+          ctx.fill()
+          ctx.stroke()
+        }
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2)
+        ctx.clip()
+        const s = Math.min(face.naturalWidth, face.naturalHeight)
+        const crop = s * 0.86
+        const sx = (face.naturalWidth - crop) / 2
+        const sy = (face.naturalHeight - crop) / 2
+        ctx.drawImage(face, sx, sy, crop, crop, -BIRD_R, -BIRD_R, BIRD_R * 2, BIRD_R * 2)
+        ctx.restore()
+
+        ctx.lineWidth = 3
+        ctx.strokeStyle = '#ffffff'
+        ctx.beginPath()
+        ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.lineWidth = 2
+        ctx.strokeStyle = '#3a2a14'
+        ctx.beginPath()
+        ctx.arc(0, 0, BIRD_R + 1.5, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+        return
+      }
 
       ctx.fillStyle = '#f7c948'
       ctx.beginPath()
